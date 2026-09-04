@@ -22,15 +22,15 @@
   <img src="https://img.shields.io/badge/VirusTotal-v3_Verified-blueviolet?style=for-the-badge&logo=virustotal" alt="VirusTotal" />
   <img src="https://img.shields.io/badge/Etherscan-v2_Live-3c3c3d?style=for-the-badge&logo=ethereum" alt="Etherscan" />
   <img src="https://img.shields.io/badge/AbuseIPDB-v2_Telemetry-orange?style=for-the-badge&logo=shield" alt="AbuseIPDB" />
-  <img src="https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge" alt="MIT License" />
+  <img src="https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge" alt="Proprietary License" />
 </p>
 
-```bash
-# Clone & Launch DataGuard locally in 30 seconds
-git clone https://github.com/jojin1709/dataguard.git && cd dataguard && npm install && npm run dev
-```
+<p align="center">
+  🌐 <strong>Access the live web application to audit identifiers and threat telemetry:</strong><br />
+  <code>https://dataguard.vercel.app</code>
+</p>
 
-<sub>100% genuine algorithmic validation • Client-safe zero-knowledge design • No fake or simulated outputs</sub>
+<sub>100% genuine algorithmic validation • Client-safe zero-knowledge design • Proprietary web platform</sub>
 
 ---
 
@@ -52,17 +52,11 @@ git clone https://github.com/jojin1709/dataguard.git && cd dataguard && npm inst
   - [2. Government & Transport (India)](#2-government--transport-india)
   - [3. Financial & Web3 Intelligence](#3-financial--web3-intelligence)
   - [4. Cyber & Threat Reconnaissance](#4-cyber--threat-reconnaissance)
-- [Live API Providers Configured](#-live-api-providers-configured)
-- [Quick Start](#-quick-start)
-  - [Prerequisites](#prerequisites)
-  - [Local Installation](#local-installation)
-  - [Environment Setup](#environment-setup)
-- [Deployment Guide](#-deployment-guide)
-  - [Deploying to Vercel](#deploying-to-vercel-recommended)
-  - [Deploying to Render / Railway](#deploying-to-render--railway)
+- [Live Upstream Intelligence Integrations](#-live-upstream-intelligence-integrations)
 - [Export & PDF Audit Reports](#-export--pdf-audit-reports)
+- [Terms of Use & Proprietary Rights](#-terms-of-use--proprietary-rights)
 - [Frequently Asked Questions (FAQ)](#-frequently-asked-questions-faq)
-- [License & Author](#-license--author)
+- [Author & Contact](#-author--contact)
 
 ---
 
@@ -108,20 +102,20 @@ DataGuard is engineered with privacy as a hard requirement:
 
 ```mermaid
 flowchart TD
-    CLIENT["Client Browser / Next.js Frontend"]
+    CLIENT["User on Live Web Platform"]
     
-    subgraph EngineLayer["DataGuard 15-Engine Core (Next.js Serverless Routes)"]
-        ALGO["Algorithmic Engines<br/>• Verhoeff (Aadhaar)<br/>• Luhn (Cards)<br/>• Mod-36 (GSTIN)<br/>• EIP-55 (Crypto)"]
-        DNS_PROV["DNS & Network Engines<br/>• dns/promises (SPF / DMARC / MX)<br/>• ipwho.is (GeoIP & ASN)"]
-        INTEL["Upstream Threat Intelligence<br/>• VirusTotal v3 API<br/>• Etherscan v2 API<br/>• AbuseIPDB v2 API<br/>• AlienVault OTX v1 API"]
+    subgraph EngineLayer["DataGuard 15-Engine Core"]
+        ALGO["Algorithmic Verification<br/>• Verhoeff (Aadhaar)<br/>• Luhn (Cards)<br/>• Mod-36 (GSTIN)<br/>• EIP-55 (Crypto)"]
+        DNS_PROV["DNS & Network Analysis<br/>• SPF / DMARC / MX Records<br/>• GeoIP & ASN Provider"]
+        INTEL["Live Upstream Intelligence<br/>• VirusTotal v3 API<br/>• Etherscan v2 API<br/>• AbuseIPDB v2 API<br/>• AlienVault OTX v1 API"]
     end
     
     CLIENT -- "HTTPS Encrypted Query" --> EngineLayer
-    INTEL --> RES["Normalized JSON Intelligence"]
+    INTEL --> RES["Normalized Threat Intelligence"]
     ALGO --> RES
     DNS_PROV --> RES
     
-    RES --> UI["Real-Time UI Audit View"]
+    RES --> UI["Interactive Real-Time Dashboard"]
     UI --> PDF["Export Audit Report (PDF / Print)"]
 ```
 
@@ -149,77 +143,14 @@ flowchart TD
 
 ---
 
-## 🔑 Live API Providers Configured
+## 🔑 Live Upstream Intelligence Integrations
 
-DataGuard leverages server-side API keys securely stored in environment variables (never exposed to the client):
-
-```ini
-# .env.local
-ABUSEIPDB_API_KEY=your_abuseipdb_key
-VIRUSTOTAL_API_KEY=your_virustotal_key
-ETHERSCAN_API_KEY=your_etherscan_key
-ALIENVAULT_OTX_KEY=your_alienvault_key
-```
+DataGuard directly connects to official upstream security APIs:
 
 * **Etherscan (v2 API)**: Queries Ethereum mainnet nodes via API v2 for real-time account Wei balance, live USD exchange rates, and transaction nonce.
 * **VirusTotal (v3 API)**: Inspects domains and IP addresses across 90+ antivirus and security vendors (`last_analysis_stats`).
 * **AlienVault OTX (v1 API)**: Open Threat Exchange indicator of compromise (IoC) pulse telemetry and APT adversary attribution.
 * **AbuseIPDB (v2 API)**: 90-day threat report telemetry, abuse confidence percentage, Tor exit status, and attack logs.
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-* **Node.js**: v18.17 or higher
-* **npm** or **pnpm** / **yarn**
-
-### Local Installation
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/jojin1709/dataguard.git
-
-# 2. Enter the project directory
-cd dataguard
-
-# 3. Install dependencies
-npm install
-
-# 4. Create your local environment file
-cp .env.example .env.local  # or create .env.local with your keys
-
-# 5. Start the development server
-npm run dev
-```
-
-Visit [http://localhost:3000](http://localhost:3000) in your browser.
-
----
-
-## ☁️ Deployment Guide
-
-### Deploying to Vercel (Recommended)
-
-1. Push your repository to GitHub:
-   ```bash
-   git remote add origin https://github.com/jojin1709/dataguard.git
-   git branch -M main
-   git push -u origin main
-   ```
-2. Log in to [Vercel](https://vercel.com) and click **"Add New Project"**.
-3. Select `dataguard` from your GitHub repositories.
-4. Under **Environment Variables**, add the four keys:
-   * `ABUSEIPDB_API_KEY`
-   * `VIRUSTOTAL_API_KEY`
-   * `ETHERSCAN_API_KEY`
-   * `ALIENVAULT_OTX_KEY`
-5. Click **Deploy**. Your app will be live with free global CDN and automatic SSL!
-
-### Deploying to Render / Railway
-* **Build Command**: `npm run build`
-* **Start Command**: `npm start`
-* **Environment Variables**: Add your 4 API keys in the dashboard settings.
 
 ---
 
@@ -229,6 +160,17 @@ DataGuard includes a built-in **Export Report (PDF)** feature. When auditing an 
 1. Click the **Export Report (PDF)** button at the top-right of any result.
 2. The custom `@media print` stylesheet automatically hides search bars, tabs, particles, and navigation chrome.
 3. Your browser opens the print preview, formatting a clean, audit-ready security report on a white background suitable for compliance filings, clients, or documentation.
+
+---
+
+## 🔒 Terms of Use & Proprietary Rights
+
+> [!IMPORTANT]
+> **Proprietary Software — All Rights Reserved.**
+> 
+> * **Usage**: Users and security researchers are welcome to freely access and use the hosted web platform.
+> * **Source Code Protection**: The architecture, algorithms, and design of DataGuard are the intellectual property of **JOJIN JOHN**.
+> * **Restrictions**: Cloning, modifying, mirroring, distributing, or deploying copies of this source code or derivative works without explicit written consent from the author is strictly prohibited.
 
 ---
 
@@ -249,21 +191,19 @@ Yes. DataGuard **never** asks for or accepts CVV codes, expiration dates, or car
 </details>
 
 <details>
-<summary><strong>Can I use DataGuard without providing all API keys?</strong></summary>
+<summary><strong>How can I use DataGuard?</strong></summary>
 
-Yes. If an optional API key is omitted, the engines gracefully degrade:
-- Etherscan: Performs offline EIP-55 checksum validation and provides direct block explorer links.
-- VirusTotal: Focuses on live DNS SPF/DMARC resolution.
-- AbuseIPDB/OTX: Displays GeoIP, ASN, and network provider intelligence.
+You can access the live service directly through the deployed web portal.
 
 </details>
 
 ---
 
-## 📄 License & Author
+## 📄 Author & Contact
 
 Developed with pride by **[JOJIN JOHN](https://www.linkedin.com/in/jojin-john/)** ([@jojin1709](https://github.com/jojin1709)).
+
 * **LinkedIn**: [linkedin.com/in/jojin-john](https://www.linkedin.com/in/jojin-john/)
 * **GitHub**: [github.com/jojin1709](https://github.com/jojin1709)
 
-Released under the [MIT License](LICENSE). Contributions, bug reports, and feature suggestions are always welcome!
+*Copyright © 2026 JOJIN JOHN. All rights reserved.*
