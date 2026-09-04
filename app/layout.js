@@ -1,9 +1,35 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Privacy & Data Exposure Checker",
+  title: "DataGuard — Privacy & Data Exposure Suite",
   description:
-    "Check whether your personal information (Email, Phone, Aadhaar, PAN, Username, Password, or IP) has been leaked in data breaches or exposed online.",
+    "DataGuard by Jojin John: Check whether your personal information (Email, Phone, Aadhaar, PAN, Username, Password, IP, Crypto Wallet, or Domain) has been leaked in data breaches or exposed online. Powered by 15+ intelligence engines.",
+  applicationName: "DataGuard",
+  authors: [{ name: "Jojin John", url: "https://www.linkedin.com/in/jojin-john/" }],
+  icons: {
+    icon: [
+      { url: "/icon.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  openGraph: {
+    title: "DataGuard — Privacy & Data Exposure Suite",
+    description:
+      "Scan emails, phones, IPs, crypto wallets, domains & more across 15+ intelligence engines. Built by Jojin John.",
+    url: "https://dataguard-suite.vercel.app",
+    siteName: "DataGuard",
+    images: [{ url: "/icon-512.png", width: 512, height: 512, alt: "DataGuard Logo" }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "DataGuard — Privacy & Data Exposure Suite",
+    description: "Scan emails, phones, IPs, crypto wallets, domains & more. Built by Jojin John.",
+    images: ["/icon-512.png"],
+  },
 };
 
 export default function RootLayout({ children }) {
