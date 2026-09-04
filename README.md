@@ -26,8 +26,8 @@
 </p>
 
 <p align="center">
-  🌐 <strong>Access the live web application to audit identifiers and threat telemetry:</strong><br />
-  <code>https://dataguard.vercel.app</code>
+  🌐 <strong>Access the live web application:</strong><br />
+  <a href="https://dataguard-suite.vercel.app"><code>https://dataguard-suite.vercel.app</code></a>
 </p>
 
 <sub>100% genuine algorithmic validation • Client-safe zero-knowledge design • Proprietary web platform</sub>
