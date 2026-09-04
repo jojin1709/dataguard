@@ -38,6 +38,12 @@ import {
   Download,
   Radio,
   Server,
+  Link,
+  MapPin,
+  ShieldQuestion,
+  Users,
+  Calendar,
+  Clock,
 } from "lucide-react";
 
 const CATEGORIES = [
@@ -190,6 +196,42 @@ const MODULES = [
     placeholder: "Paste hash string (MD5, SHA-1, SHA-256, bcrypt, etc.)",
     samples: ["5d41402abc4b2a76b9719d911017c592", "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"],
     helperText: "Detects cryptographic hash algorithm and searches known plaintext reversals.",
+  },
+  {
+    id: "urlSafety",
+    category: "cyber",
+    label: "URL Safety",
+    icon: Link,
+    placeholder: "Enter URL to scan (e.g. https://suspicious-site.com)",
+    samples: ["https://google.com", "http://malware.testing.google.test/testing/malware/"],
+    helperText: "Scans URL across VirusTotal (70+ AV engines) and Google Safe Browsing for malware & phishing.",
+  },
+  {
+    id: "whois",
+    category: "cyber",
+    label: "WHOIS Lookup",
+    icon: Calendar,
+    placeholder: "Enter domain to look up (e.g. google.com or github.com)",
+    samples: ["google.com", "github.com"],
+    helperText: "Reveals registrar, domain age, expiry date, nameservers via RDAP & WhoisXML.",
+  },
+  {
+    id: "ssl",
+    category: "cyber",
+    label: "SSL Certificate",
+    icon: Lock,
+    placeholder: "Enter domain to check SSL cert (e.g. github.com)",
+    samples: ["github.com", "google.com"],
+    helperText: "Live TLS handshake reveals issuer, expiry, Subject Alt Names, cipher suite, and fingerprint.",
+  },
+  {
+    id: "socialOsint",
+    category: "cyber",
+    label: "Social OSINT",
+    icon: Users,
+    placeholder: "Enter username to search across 35 platforms (e.g. torvalds)",
+    samples: ["torvalds", "shadcn"],
+    helperText: "Checks username presence across GitHub, Reddit, Dev.to, npm, PyPI, HackerNews, and 29 more platforms.",
   },
 ];
 
@@ -520,6 +562,40 @@ export default function Home() {
         }).then((r) => r.json());
         if (res.error) throw new Error(res.error);
         setResult({ type: "hash", data: res });
+      } else if (activeTab === "urlSafety") {
+        const res = await fetch("/api/url-safety-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: targetQuery }),
+        }).then((r) => r.json());
+        if (res.error) throw new Error(res.error);
+        setResult({ type: "urlSafety", data: res });
+        if (res.isSafe) triggerCelebration();
+      } else if (activeTab === "whois") {
+        const res = await fetch("/api/whois-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domain: targetQuery }),
+        }).then((r) => r.json());
+        if (res.error) throw new Error(res.error);
+        setResult({ type: "whois", data: res });
+      } else if (activeTab === "ssl") {
+        const res = await fetch("/api/ssl-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domain: targetQuery }),
+        }).then((r) => r.json());
+        if (res.error) throw new Error(res.error);
+        setResult({ type: "ssl", data: res });
+        if (res.isValid && !res.isExpiringSoon) triggerCelebration();
+      } else if (activeTab === "socialOsint") {
+        const res = await fetch("/api/social-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: targetQuery }),
+        }).then((r) => r.json());
+        if (res.error) throw new Error(res.error);
+        setResult({ type: "socialOsint", data: res });
       }
     } catch (err) {
       setError(err.message || "An unexpected error occurred. Please try again.");
@@ -555,7 +631,7 @@ export default function Home() {
               <span className="font-bold text-white tracking-tight text-base flex items-center gap-2">
                 DataGuard
                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                  15 Engines
+                  20 Engines
                 </span>
               </span>
             </div>
@@ -862,6 +938,10 @@ export default function Home() {
             {result.type === "domainSpoof" && <DomainSpoofResultView data={result.data} />}
             {result.type === "disposable" && <DisposableResultView data={result.data} />}
             {result.type === "hash" && <HashResultView data={result.data} />}
+        {result.type === "urlSafety" && <UrlSafetyResultView data={result.data} />}
+        {result.type === "whois" && <WhoisResultView data={result.data} />}
+        {result.type === "ssl" && <SslResultView data={result.data} />}
+        {result.type === "socialOsint" && <SocialOsintResultView data={result.data} />}
           </div>
         )}
       </main>
@@ -1768,6 +1848,28 @@ function IpResultView({ data }) {
           )}
         </div>
       )}
+
+      {/* IP Geolocation Map */}
+      {data.latitude && data.longitude && (
+        <div className="mt-5">
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <MapPin className="w-3.5 h-3.5 text-cyan-400" /> Geolocation Map
+          </h3>
+          <div className="rounded-2xl overflow-hidden border border-slate-700/60" style={{ height: 260 }}>
+            <iframe
+              title="IP Geolocation Map"
+              width="100%"
+              height="260"
+              style={{ border: 0, filter: "invert(90%) hue-rotate(180deg) saturate(0.7)" }}
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${data.longitude - 0.1}%2C${data.latitude - 0.1}%2C${data.longitude + 0.1}%2C${data.latitude + 0.1}&layer=mapnik&marker=${data.latitude}%2C${data.longitude}`}
+              allowFullScreen
+            />
+          </div>
+          <p className="text-[11px] text-slate-500 mt-1.5 text-center">
+            📍 {data.city}, {data.region}, {data.country} &nbsp;·&nbsp; {data.latitude?.toFixed(4)}, {data.longitude?.toFixed(4)}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -2368,6 +2470,272 @@ function HashResultView({ data }) {
                 <span className="text-slate-400 text-[11px]">{alg.desc}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* URL Safety Result View */
+function UrlSafetyResultView({ data }) {
+  const isMalicious = data.isMalicious;
+  const vt = data.virusTotal;
+  const gsb = data.googleSafeBrowsing;
+  const vtTotal = vt?.total || 0;
+  const vtMal = vt?.malicious || 0;
+  const vtSusp = vt?.suspicious || 0;
+  const vtHarmless = vt?.harmless || 0;
+
+  return (
+    <div className="bg-[#121826]/90 border border-slate-800 rounded-3xl p-6 sm:p-7 glow-card shadow-lg backdrop-blur space-y-5">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-800/80">
+        <div>
+          <h2 className="text-base font-semibold text-white">URL Safety Scan</h2>
+          <p className="text-xs text-slate-400 mt-0.5 font-mono truncate max-w-xs">{data.url}</p>
+        </div>
+        <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${isMalicious ? "bg-red-500/15 text-red-400 border-red-500/30" : data.isSuspicious ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"}`}>
+          {isMalicious ? "⚠ MALICIOUS" : data.isSuspicious ? "⚠ SUSPICIOUS" : "✓ SAFE"}
+        </span>
+      </div>
+      <p className="text-sm text-slate-300">{data.summary}</p>
+      {vt && (
+        <div>
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">VirusTotal — {vtTotal} Engines</h3>
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { label: "Malicious", val: vtMal, color: "text-red-400", bg: "bg-red-500/10 border-red-500/20" },
+              { label: "Suspicious", val: vtSusp, color: "text-yellow-400", bg: "bg-yellow-500/10 border-yellow-500/20" },
+              { label: "Harmless", val: vtHarmless, color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20" },
+              { label: "Undetected", val: vt.undetected, color: "text-slate-400", bg: "bg-slate-800/50 border-slate-700" },
+            ].map(({ label, val, color, bg }) => (
+              <div key={label} className={`p-3 rounded-2xl border ${bg} text-center`}>
+                <div className={`text-2xl font-black ${color}`}>{val}</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">{label}</div>
+              </div>
+            ))}
+          </div>
+          {vtTotal > 0 && (
+            <div className="mt-3">
+              <div className="h-2 rounded-full bg-slate-800 overflow-hidden flex">
+                <div className="bg-red-500 transition-all" style={{ width: `${(vtMal / vtTotal) * 100}%` }} />
+                <div className="bg-yellow-500 transition-all" style={{ width: `${(vtSusp / vtTotal) * 100}%` }} />
+                <div className="bg-emerald-500 transition-all" style={{ width: `${(vtHarmless / vtTotal) * 100}%` }} />
+              </div>
+            </div>
+          )}
+          {vt.flaggedEngines?.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <h4 className="text-xs font-semibold text-red-400">Flagged by:</h4>
+              {vt.flaggedEngines.map((e, i) => (
+                <div key={i} className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-900/70 border border-red-500/10 text-xs">
+                  <span className="font-semibold text-white">{e.engine}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${e.category === "malicious" ? "bg-red-500/20 text-red-400" : "bg-yellow-500/20 text-yellow-400"}`}>{e.result}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {gsb && (
+        <div className="p-4 rounded-2xl border border-slate-700/60 bg-slate-900/40">
+          <div className="flex items-center gap-2 mb-2">
+            <ShieldCheck className="w-4 h-4 text-blue-400" />
+            <span className="text-xs font-semibold text-slate-300">Google Safe Browsing</span>
+            <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${gsb.isSafe ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}>{gsb.isSafe ? "CLEAN" : "THREAT FOUND"}</span>
+          </div>
+          {gsb.threats?.map((t, i) => (
+            <div key={i} className="text-xs text-red-300 font-mono mt-1">⚠ {t.threatType} ({t.platformType})</div>
+          ))}
+          {gsb.isSafe && <p className="text-xs text-slate-400">No threats in Google threat database.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* WHOIS Result View */
+function WhoisResultView({ data }) {
+  const fmt = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  const expiring = data.daysUntilExpiry !== null && data.daysUntilExpiry <= 30 && !data.isExpired;
+  return (
+    <div className="bg-[#121826]/90 border border-slate-800 rounded-3xl p-6 sm:p-7 glow-card shadow-lg backdrop-blur space-y-5">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-800/80">
+        <div>
+          <h2 className="text-base font-semibold text-white">WHOIS / Domain Age</h2>
+          <p className="text-xs text-slate-400 mt-0.5 font-mono">{data.domain}</p>
+        </div>
+        <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${data.isExpired ? "bg-red-500/15 text-red-400 border-red-500/30" : expiring ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" : "bg-cyan-500/15 text-cyan-400 border-cyan-500/30"}`}>
+          {data.isExpired ? "EXPIRED" : expiring ? "EXPIRING SOON" : data.domainAgeText || "ACTIVE"}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "Registered", val: fmt(data.createdAt), icon: "📅" },
+          { label: "Last Updated", val: fmt(data.updatedAt), icon: "🔄" },
+          { label: "Expires", val: fmt(data.expiresAt), icon: "⏳" },
+          { label: "Domain Age", val: data.domainAgeText || "Unknown", icon: "🕰️" },
+        ].map(({ label, val, icon }) => (
+          <div key={label} className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
+            <div className="text-xl mb-1">{icon}</div>
+            <div className="text-xs text-slate-400 mb-1">{label}</div>
+            <div className="text-sm font-bold text-white">{val}</div>
+          </div>
+        ))}
+      </div>
+      {data.daysUntilExpiry !== null && (
+        <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-slate-400">Days until expiry</span>
+            <span className={`text-sm font-black ${data.isExpired ? "text-red-400" : expiring ? "text-yellow-400" : "text-emerald-400"}`}>{data.isExpired ? `Expired ${Math.abs(data.daysUntilExpiry)} days ago` : `${data.daysUntilExpiry} days`}</span>
+          </div>
+          {!data.isExpired && <div className="h-2 rounded-full bg-slate-800 overflow-hidden"><div className={`h-2 rounded-full ${expiring ? "bg-yellow-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(100, Math.max(2, (data.daysUntilExpiry / 365) * 100))}%` }} /></div>}
+        </div>
+      )}
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+          <span className="text-xs text-slate-400 block mb-1">Registrar</span>
+          <span className="text-sm font-semibold text-white">{data.registrar}</span>
+        </div>
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+          <span className="text-xs text-slate-400 block mb-1">Registrant Country</span>
+          <span className="text-sm font-semibold text-white">{data.registrantCountry}</span>
+        </div>
+      </div>
+      {data.nameServers?.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Nameservers</h3>
+          <div className="flex flex-wrap gap-2">{data.nameServers.map((ns, i) => <span key={i} className="text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-900/70 border border-slate-700/60 text-cyan-300">{ns}</span>)}</div>
+        </div>
+      )}
+      {data.status?.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Status Flags</h3>
+          <div className="flex flex-wrap gap-2">{data.status.map((s, i) => <span key={i} className="text-[11px] font-mono px-2 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-300">{s}</span>)}</div>
+        </div>
+      )}
+      <div className="flex gap-2 text-[10px] text-slate-500">
+        {data.sources?.rdap && <span className="px-2 py-0.5 rounded bg-slate-800">RDAP</span>}
+        {data.sources?.whoisXml && <span className="px-2 py-0.5 rounded bg-slate-800">WhoisXML</span>}
+      </div>
+    </div>
+  );
+}
+
+/* SSL Certificate Result View */
+function SslResultView({ data }) {
+  const fmt = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  const pct = data.totalDays > 0 ? Math.max(2, Math.min(100, (data.daysRemaining / data.totalDays) * 100)) : 0;
+  return (
+    <div className="bg-[#121826]/90 border border-slate-800 rounded-3xl p-6 sm:p-7 glow-card shadow-lg backdrop-blur space-y-5">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-800/80">
+        <div>
+          <h2 className="text-base font-semibold text-white">SSL Certificate</h2>
+          <p className="text-xs text-slate-400 mt-0.5 font-mono">{data.domain}</p>
+        </div>
+        <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${data.isExpired ? "bg-red-500/15 text-red-400 border-red-500/30" : data.isExpiringSoon ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"}`}>
+          {data.isExpired ? "✗ EXPIRED" : data.isExpiringSoon ? "⚠ EXPIRING SOON" : "✓ VALID"}
+        </span>
+      </div>
+      <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-slate-400">Certificate validity</span>
+          <span className={`text-sm font-black ${data.isExpired ? "text-red-400" : data.isExpiringSoon ? "text-yellow-400" : "text-emerald-400"}`}>{data.isExpired ? `Expired ${Math.abs(data.daysRemaining)} days ago` : `${data.daysRemaining} days remaining`}</span>
+        </div>
+        <div className="h-3 rounded-full bg-slate-800 overflow-hidden">
+          <div className={`h-3 rounded-full ${data.isExpired ? "bg-red-500" : data.isExpiringSoon ? "bg-yellow-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
+        </div>
+        <div className="flex justify-between text-[10px] text-slate-500 mt-1"><span>{fmt(data.validFrom)}</span><span>{fmt(data.validTo)}</span></div>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+          <span className="text-xs text-slate-400 block mb-2">Subject (Certificate For)</span>
+          <span className="text-sm font-bold text-white block font-mono">{data.subject?.cn}</span>
+          {data.subject?.org && <span className="text-xs text-slate-400">{data.subject.org}</span>}
+        </div>
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+          <span className="text-xs text-slate-400 block mb-2">Certificate Authority</span>
+          <span className="text-sm font-bold text-cyan-300 block">{data.issuer?.cn || "Unknown CA"}</span>
+          {data.issuer?.org && <span className="text-xs text-slate-400">{data.issuer.org}</span>}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {[{ label: "Protocol", val: data.protocol }, { label: "Cipher Suite", val: data.cipher }, { label: "Key Bits", val: data.bits ? `${data.bits}-bit` : null }].filter(x => x.val).map(({ label, val }) => (
+          <div key={label} className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
+            <span className="text-xs text-slate-400 block mb-1">{label}</span>
+            <span className="text-xs font-bold text-white font-mono">{val}</span>
+          </div>
+        ))}
+      </div>
+      {data.sans?.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Subject Alt Names ({data.sans.length})</h3>
+          <div className="flex flex-wrap gap-2">{data.sans.map((san, i) => <span key={i} className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-slate-900/70 border border-slate-700/60 text-blue-300">{san}</span>)}</div>
+        </div>
+      )}
+      {data.fingerprint && (
+        <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
+          <span className="text-xs text-slate-400 block mb-1">SHA-256 Fingerprint</span>
+          <span className="text-[11px] font-mono text-slate-300 break-all">{data.fingerprint}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Social OSINT Result View */
+function SocialOsintResultView({ data }) {
+  const found = (data.results || []).filter(r => r.found === true);
+  const notFound = (data.results || []).filter(r => r.found === false);
+  const unverifiable = (data.results || []).filter(r => r.found === null);
+  return (
+    <div className="bg-[#121826]/90 border border-slate-800 rounded-3xl p-6 sm:p-7 glow-card shadow-lg backdrop-blur space-y-5">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-800/80">
+        <div>
+          <h2 className="text-base font-semibold text-white">Social Media OSINT</h2>
+          <p className="text-xs text-slate-400 mt-0.5">@{data.username} · {data.totalChecked} platforms checked</p>
+        </div>
+        <span className="text-xs font-bold px-3 py-1.5 rounded-full border bg-cyan-500/15 text-cyan-400 border-cyan-500/30">{found.length} Found</span>
+      </div>
+      <p className="text-sm text-slate-300">{data.summary}</p>
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Found", val: found.length, color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20" },
+          { label: "Not Found", val: notFound.length, color: "text-slate-400", bg: "bg-slate-800/50 border-slate-700" },
+          { label: "Unverifiable", val: unverifiable.length, color: "text-yellow-400", bg: "bg-yellow-500/10 border-yellow-500/20" },
+        ].map(({ label, val, color, bg }) => (
+          <div key={label} className={`p-4 rounded-2xl border ${bg} text-center`}>
+            <div className={`text-2xl font-black ${color}`}>{val}</div>
+            <div className="text-[11px] text-slate-400 mt-0.5">{label}</div>
+          </div>
+        ))}
+      </div>
+      {found.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-emerald-400 uppercase tracking-widest mb-3">✓ Found on these platforms</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {found.map((p, i) => (
+              <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-500/8 border border-emerald-500/25 hover:border-emerald-400/50 hover:bg-emerald-500/15 transition-all group">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                <span className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors truncate">{p.name}</span>
+                <ExternalLink className="w-3 h-3 text-slate-500 ml-auto flex-shrink-0" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+      {notFound.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">✗ Not found</h3>
+          <div className="flex flex-wrap gap-2">{notFound.map((p, i) => <span key={i} className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-900/70 border border-slate-700/50 text-slate-500">{p.name}</span>)}</div>
+        </div>
+      )}
+      {unverifiable.length > 0 && (
+        <div className="p-4 rounded-2xl bg-yellow-500/5 border border-yellow-500/15">
+          <p className="text-xs text-yellow-400 font-semibold mb-1">⚠ {unverifiable.length} platforms could not be verified</p>
+          <p className="text-[11px] text-slate-400">Some platforms require login to confirm username existence.</p>
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {unverifiable.map((p, i) => <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" className="text-[11px] px-2 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 hover:text-yellow-200">{p.name}</a>)}
           </div>
         </div>
       )}
