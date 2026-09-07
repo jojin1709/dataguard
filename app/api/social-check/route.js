@@ -12,7 +12,7 @@ const PLATFORMS = [
   { name: "GitLab",       url: "https://gitlab.com/{u}",                       check: "status" },
   { name: "Bitbucket",    url: "https://bitbucket.org/{u}/",                   check: "status" },
   { name: "npm",          url: "https://www.npmjs.com/~{u}",                   check: "status" },
-  { name: "PyPI",         url: "https://pypi.org/user/{u}/",                   check: "status" },
+  { name: "PyPI",         url: "https://pypi.org/user/{u}/",                 check: "status" },
   { name: "Docker Hub",   url: "https://hub.docker.com/u/{u}/",                check: "status" },
   { name: "Replit",       url: "https://replit.com/@{u}",                      check: "status" },
   { name: "Stack Overflow", url: "https://stackoverflow.com/users/search?tab=Users&q={u}", check: "status" },
@@ -21,23 +21,24 @@ const PLATFORMS = [
   { name: "Dribbble",     url: "https://dribbble.com/{u}",                     check: "status" },
   { name: "SoundCloud",   url: "https://soundcloud.com/{u}",                   check: "status" },
   { name: "Keybase",      url: "https://keybase.io/{u}",                       check: "json",   jsonField: "status.name" },
-  { name: "Patreon",      url: "https://www.patreon.com/{u}",                  check: "status" },
-  { name: "Substack",     url: "https://{u}.substack.com",                     check: "status" },
+  { name: "Patreon",      url: "https://www.patreon.com/{u}",                 check: "status" },
+  { name: "Substack",     url: "https://{u}.substack.com",                    check: "status" },
   { name: "Quora",        url: "https://www.quora.com/profile/{u}",            check: "status" },
-  { name: "Fiverr",       url: "https://www.fiverr.com/{u}",                   check: "status" },
-  { name: "Tumblr",       url: "https://{u}.tumblr.com",                       check: "status" },
+  { name: "Fiverr",       url: "https://www.fiverr.com/{u}",                  check: "status" },
+  { name: "Tumblr",       url: "https://{u}.tumblr.com",                      check: "status" },
   { name: "HackerNews",   url: "https://hacker-news.firebaseio.com/v0/user/{u}.json", check: "json_notnull" },
   { name: "Telegram",     url: "https://t.me/{u}",                             check: "status" },
   { name: "Steam",        url: "https://steamcommunity.com/id/{u}",            check: "status" },
-  { name: "Mastodon",     url: "https://mastodon.social/@{u}",                 check: "status" },
+  { name: "Mastodon",     url: "https://mastodon.social/@{u}",                check: "status" },
   { name: "Spotify",      url: "https://open.spotify.com/user/{u}",            check: "status" },
-  { name: "Buy Me a Coffee", url: "https://buymeacoffee.com/{u}",              check: "status" },
+  { name: "Buy Me a Coffee", url: "https://buymeacoffee.com/{u}",             check: "status" },
   { name: "Ko-fi",        url: "https://ko-fi.com/{u}",                        check: "status" },
   { name: "Linktree",     url: "https://linktr.ee/{u}",                        check: "status" },
+  { name: "LinkedIn",     url: "https://www.linkedin.com/in/{u}",              check: "status" },
 ];
 
 // Platforms that return 200 for non-existent users (need special handling)
-const UNRELIABLE = new Set(["Instagram", "Twitter / X", "TikTok", "LinkedIn", "Snapchat"]);
+const UNRELIABLE = new Set(["Instagram", "Twitter / X", "TikTok", "LinkedIn", "Snapchat", "Pinterest"]);
 
 async function checkPlatform(platform, username) {
   const url = platform.url.replace(/{u}/g, encodeURIComponent(username));

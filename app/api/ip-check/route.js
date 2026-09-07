@@ -129,19 +129,22 @@ async function queryIpinfo(ip) {
   const token = process.env.IPINFO_TOKEN;
   if (!token) return null;
   try {
-    const res = await fetch(`https://api.ipinfo.io/lite/${encodeURIComponent(ip)}`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    const res = await fetch(`https://ipinfo.io/${encodeURIComponent(ip)}?token=${encodeURIComponent(token)}`, {
+      headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
     const data = await res.json();
     return {
       asn: data.asn || null,
-      asName: data.as_name || null,
-      asDomain: data.as_domain || null,
+      asName: data.org || null,
+      asDomain: null,
       country: data.country || null,
-      countryCode: data.country_code || null,
-      continent: data.continent || null,
+      countryCode: data.country || null,
+      continent: null,
+      city: data.city || null,
+      region: data.region || null,
+      hostname: data.hostname || null,
     };
   } catch (err) {
     console.error("IPinfo error:", err.message);
@@ -176,24 +179,23 @@ async function queryCensys(ip) {
   const token = process.env.CENSYS_API_TOKEN;
   if (!token) return null;
   try {
-    const res = await fetch(`https://api.platform.censys.io/v3/global/asset/host/${encodeURIComponent(ip)}`, {
+    const res = await fetch(`https://search.censys.io/api/v1/host/${encodeURIComponent(ip)}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.censys.api.v3.host.v1+json",
+        Authorization: `Basic ${Buffer.from(token + ":").toString("base64")}`,
+        Accept: "application/json",
       },
       signal: AbortSignal.timeout(7000),
     });
     if (!res.ok) return null;
-    const resource = (await res.json())?.result?.resource;
-    if (!resource) return null;
+    const data = await res.json();
     return {
-      services: (resource.services || []).slice(0, 20).map((service) => ({
+      services: ((data.result?.services) || []).slice(0, 20).map((service) => ({
         port: service.port,
         transport: service.transport_protocol || service.transport || null,
         serviceName: service.service_name || service.service?.name || null,
       })),
-      labels: (resource.labels || []).slice(0, 10),
-      lastUpdatedAt: resource.last_updated_at || null,
+      labels: ((data.result?.metadata?.tags) || []).slice(0, 10),
+      lastUpdatedAt: data.result?.last_updated_at || null,
     };
   } catch (err) {
     console.error("Censys error:", err.message);

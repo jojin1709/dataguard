@@ -186,7 +186,7 @@ const MODULES = [
     icon: Trash2,
     placeholder: "Enter email or domain to detect burner providers (e.g. test@10minutemail.com)",
     samples: ["user@10minutemail.com", "user@gmail.com"],
-    helperText: "Checks against a registry of 400+ temporary burner email services.",
+    helperText: "Checks against a registry of 500+ temporary burner email services.",
   },
   {
     id: "hash",
@@ -699,7 +699,7 @@ export default function Home() {
               <span className="font-bold text-white tracking-tight text-base flex items-center gap-2">
                 DataGuard
                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                  20 Engines
+                  15+ Sources
                 </span>
               </span>
             </div>
