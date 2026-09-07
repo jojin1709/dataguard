@@ -395,6 +395,39 @@ export default function Home() {
   const [hasConsent, setHasConsent] = useState(false);
   const [breachSearch, setBreachSearch] = useState("");
 
+  useEffect(() => {
+    const scan = result?.type === "urlSafety" ? result.data?.urlscan : null;
+    if (!scan?.uuid || scan.status !== "queued") return;
+    let cancelled = false;
+    let attempts = 0;
+    let timeoutId;
+
+    const poll = async () => {
+      attempts += 1;
+      try {
+        const response = await fetch(`/api/urlscan-result?uuid=${encodeURIComponent(scan.uuid)}`);
+        if (response.ok) {
+          const completed = await response.json();
+          if (!cancelled && completed.status === "complete") {
+            setResult((current) => current?.type === "urlSafety" && current.data?.urlscan?.uuid === scan.uuid
+              ? { ...current, data: { ...current.data, urlscan: completed } }
+              : current);
+            return;
+          }
+        }
+      } catch {
+        // Keep the queued state and let the external result link remain available.
+      }
+      if (!cancelled && attempts < 6) timeoutId = setTimeout(poll, 10_000);
+    };
+
+    timeoutId = setTimeout(poll, 5_000);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [result]);
+
   const visibleModules =
     selectedCategory === "all"
       ? MODULES
@@ -2580,7 +2613,7 @@ function UrlSafetyResultView({ data }) {
       <p className={`text-xs rounded-xl border px-3 py-2 ${data.scanStatus === "complete" ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-300" : "border-yellow-500/20 bg-yellow-500/5 text-yellow-300"}`}>
         Sources: {data.availableEngines?.join(" + ") || "none available"}. Status: {data.scanStatus || "unknown"}. A clean result is not a guarantee that a site is safe.
       </p>
-      {data.urlscan && (
+      {data.urlscan?.status === "queued" && (
         <div className="p-4 rounded-2xl border border-blue-500/20 bg-blue-500/5">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -2590,6 +2623,28 @@ function UrlSafetyResultView({ data }) {
             <a href={data.urlscan.resultUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-xs font-semibold text-blue-300 hover:text-blue-200 flex items-center gap-1">
               Open scan <ExternalLink className="w-3.5 h-3.5" />
             </a>
+          </div>
+        </div>
+      )}
+      {data.urlscan?.status === "complete" && (
+        <div className="p-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-emerald-200">urlscan.io evidence available</p>
+              <p className="text-xs text-slate-400 mt-1">{data.urlscan.requestCount} network requests observed · {data.urlscan.task?.visibility || "unlisted"} scan</p>
+            </div>
+            <a href={data.urlscan.resultUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-xs font-semibold text-emerald-300 hover:text-emerald-200 flex items-center gap-1">
+              Open evidence <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+          <div className="grid sm:grid-cols-[180px_1fr] gap-4">
+            <img src={data.urlscan.screenshotUrl} alt="urlscan screenshot" className="w-full rounded-xl border border-slate-700/60 bg-slate-950 min-h-24 object-cover" />
+            <div className="space-y-2 text-xs">
+              <p className="text-slate-300"><span className="text-slate-500">Final page:</span> {data.urlscan.page?.title || data.urlscan.page?.domain || "Untitled"}</p>
+              {data.urlscan.page?.url && <p className="text-slate-400 font-mono break-all">{data.urlscan.page.url}</p>}
+              <p className="text-slate-400">HTTP {data.urlscan.page?.status || "—"} · {data.urlscan.page?.server || "Server unknown"} · {data.urlscan.page?.ip || "IP unknown"}</p>
+              {data.urlscan.domains?.length > 0 && <div className="flex flex-wrap gap-1.5 pt-1">{data.urlscan.domains.map((domain) => <span key={domain} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-[11px] text-slate-300">{domain}</span>)}</div>}
+            </div>
           </div>
         </div>
       )}
