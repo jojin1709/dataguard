@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import confetti from "canvas-confetti";
+import { jsPDF } from "jspdf";
+import "jspdf-autotable";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -44,6 +46,11 @@ import {
   Users,
   Calendar,
   Clock,
+  Sun,
+  Moon,
+  X,
+  FileText,
+  Loader2,
 } from "lucide-react";
 
 const CATEGORIES = [
@@ -394,6 +401,11 @@ export default function Home() {
   const [showPassword, setShowPassword] = useState(false);
   const [hasConsent, setHasConsent] = useState(false);
   const [breachSearch, setBreachSearch] = useState("");
+  const [theme, setTheme] = useState("dark");
+  const [toasts, setToasts] = useState([]);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkInput, setBulkInput] = useState("");
+  const [bulkResults, setBulkResults] = useState([]);
 
   useEffect(() => {
     const scan = result?.type === "urlSafety" ? result.data?.urlscan : null;
@@ -466,6 +478,85 @@ export default function Home() {
       });
     } catch {
       // Ignore
+    }
+  }
+
+  function showToast(message, type = "success") {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  }
+
+  function removeToast(id) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  function toggleTheme() {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  }
+
+  function generatePDF() {
+    if (!result) return;
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let y = 20;
+
+      doc.setFontSize(20);
+      doc.setTextColor(37, 99, 235);
+      doc.text("DataGuard Audit Report", pageWidth / 2, y, { align: "center" });
+      y += 10;
+
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, y, { align: "center" });
+      y += 15;
+
+      doc.setFontSize(14);
+      doc.setTextColor(0);
+      doc.text(`Tool: ${currentModule.label}`, 20, y);
+      y += 8;
+      doc.setFontSize(11);
+      doc.text(`Query: ${query}`, 20, y);
+      y += 15;
+
+      doc.setDrawColor(200);
+      doc.line(20, y, pageWidth - 20, y);
+      y += 10;
+
+      if (result.type === "email" && result.breach) {
+        doc.setFontSize(12);
+        doc.setTextColor(result.breach.breached ? 239 : 34, result.breach.breached ? 68 : 161, result.breach.breached ? 68 : 49);
+        doc.text(result.breach.breached ? `⚠ FOUND IN ${result.breach.count} BREACHES` : "✓ NO BREACHES FOUND", 20, y);
+        y += 10;
+        if (result.breach.breaches && result.breach.breaches.length > 0) {
+          doc.autoTable({
+            startY: y,
+            head: [["Breach Name"]],
+            body: result.breach.breaches.map((b) => [typeof b === "string" ? b : JSON.stringify(b)]),
+            theme: "striped",
+            headStyles: { fillColor: [239, 68, 68] },
+          });
+        }
+      } else if (result.data && result.data.isValid !== undefined && result.data.isValid !== null) {
+        const isValid = result.data.isValid || result.data.isValidChecksum || result.data.isValidFormat || result.data.isValidLuhn || result.data.isPwned === false;
+        doc.setTextColor(isValid ? 34 : 239, isValid ? 197 : 68, isValid ? 94 : 68);
+        doc.setFontSize(12);
+        doc.text(isValid ? "✓ VALID" : "✗ INVALID / NOT SAFE", 20, y);
+        y += 10;
+      }
+
+      doc.setTextColor(80);
+      doc.setFontSize(9);
+      const footer = "This report is for informational purposes only. DataGuard does not guarantee accuracy of results.";
+      doc.text(footer, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: "center" });
+
+      doc.save(`dataguard-report-${Date.now()}.pdf`);
+      showToast("PDF report downloaded!", "success");
+    } catch (err) {
+      showToast("Failed to generate PDF: " + err.message, "error");
     }
   }
 
@@ -666,7 +757,14 @@ export default function Home() {
         setResult({ type: "socialOsint", data: res });
       }
     } catch (err) {
-      setError(err.message || "An unexpected error occurred. Please try again.");
+      const errorMessage = err.message || "An unexpected error occurred. Please try again.";
+      if (errorMessage.toLowerCase().includes("too many requests") || errorMessage.toLowerCase().includes("rate limit") || errorMessage.toLowerCase().includes("429")) {
+        setError("Rate limit exceeded. Please wait a minute before trying again.");
+        showToast("Rate limit exceeded. Please wait.", "error");
+      } else {
+        setError(errorMessage);
+        showToast(errorMessage, "error");
+      }
     } finally {
       clearInterval(stepInterval);
       setLoading(false);
@@ -681,12 +779,34 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-x-hidden selection:bg-blue-600/30 selection:text-blue-200">
+    <div className={`min-h-screen flex flex-col relative overflow-x-hidden selection:bg-blue-600/30 selection:text-blue-200 ${theme === "light" ? "bg-slate-50" : "bg-[#090a0f]"}`}>
       {/* Background Animated Atmosphere */}
       <ParticleAura />
       <div className="fixed -top-40 -left-40 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl pointer-events-none -z-10 animate-float-slow" />
       <div className="fixed top-1/2 -right-40 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none -z-10 animate-float-reverse" />
       <div className="fixed -bottom-40 left-1/3 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none -z-10 animate-float-slow" />
+
+      {/* Toast Notifications */}
+      <div className="fixed top-20 right-4 z-50 space-y-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg backdrop-blur-sm border animate-slide-in ${
+              toast.type === "success"
+                ? "bg-emerald-500/90 border-emerald-400/50 text-white"
+                : toast.type === "error"
+                ? "bg-rose-500/90 border-rose-400/50 text-white"
+                : "bg-blue-500/90 border-blue-400/50 text-white"
+            }`}
+          >
+            {toast.type === "success" ? <CheckCircle2 className="w-5 h-5" /> : toast.type === "error" ? <XCircle className="w-5 h-5" /> : <Activity className="w-5 h-5" />}
+            <span className="text-sm font-medium">{toast.message}</span>
+            <button onClick={() => removeToast(toast.id)} className="ml-2 hover:opacity-70">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
 
       {/* Top Header */}
       <header className="border-b border-slate-800/80 bg-[#0c1019]/80 backdrop-blur-md sticky top-0 z-50 transition-all">
@@ -706,6 +826,15 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={toggleTheme}
+              className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-full transition-all shadow-sm"
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            >
+              {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-blue-400" />}
+              <span>{theme === "dark" ? "Light" : "Dark"}</span>
+            </button>
+
             <a
               href="https://github.com/jojin1709"
               target="_blank"
@@ -748,6 +877,19 @@ export default function Home() {
 
         {/* Category Filter Pills */}
         <div className="flex items-center justify-center pb-2 mb-4">
+          <div className="flex items-center gap-2 mr-4">
+            <button
+              onClick={() => setBulkMode(!bulkMode)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer border ${
+                bulkMode
+                  ? "bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-600/25"
+                  : "bg-slate-900/90 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800/70 hover:border-slate-700"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>Bulk Mode</span>
+            </button>
+          </div>
           <div className="flex flex-wrap items-center justify-center gap-1 p-1.5 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-sm">
             {CATEGORIES.map((cat) => {
               const isCatActive = selectedCategory === cat.id;
@@ -905,6 +1047,92 @@ export default function Home() {
             </label>
           )}
 
+          {/* Bulk Mode Input */}
+          {bulkMode && (
+            <div className="mt-5 pt-4 border-t border-slate-800/80">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-emerald-400 font-medium flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Bulk Lookup Mode - Enter one item per line
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  {bulkInput.split("\n").filter(l => l.trim()).length} items
+                </span>
+              </div>
+              <textarea
+                value={bulkInput}
+                onChange={(e) => setBulkInput(e.target.value)}
+                placeholder={`Enter multiple items to check (one per line):\n\nuser1@example.com\nuser2@example.com\nuser3@example.com\n...`}
+                className="w-full h-32 px-4 py-3 rounded-xl bg-slate-900/90 border border-slate-700/70 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-sm font-mono resize-none"
+              />
+              <button
+                onClick={async () => {
+                  if (!bulkInput.trim()) return;
+                  const lines = bulkInput.split("\n").filter(l => l.trim());
+                  if (lines.length === 0) return;
+                  setLoading(true);
+                  setBulkResults([]);
+                  try {
+                    const results = [];
+                    for (const line of lines) {
+                      const item = line.trim();
+                      if (!item) continue;
+                      try {
+                        let res;
+                        if (activeTab === "email") {
+                          res = await fetch("/api/breach-check", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ email: item }),
+                          }).then(r => r.json());
+                          results.push({ input: item, type: "email", data: res, success: !res.error });
+                        } else if (activeTab === "username") {
+                          res = await fetch("/api/username-check", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ username: item }),
+                          }).then(r => r.json());
+                          results.push({ input: item, type: "username", data: res, success: !res.error });
+                        } else if (activeTab === "ip") {
+                          res = await fetch("/api/ip-check", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ ip: item }),
+                          }).then(r => r.json());
+                          results.push({ input: item, type: "ip", data: res, success: !res.error });
+                        } else {
+                          results.push({ input: item, type: activeTab, data: { error: "Bulk not supported for this tool" }, success: false });
+                        }
+                      } catch (e) {
+                        results.push({ input: item, type: activeTab, data: { error: e.message }, success: false });
+                      }
+                    }
+                    setBulkResults(results);
+                    showToast(`Bulk lookup complete: ${results.filter(r => r.success).length}/${results.length} successful`, "success");
+                  } catch (err) {
+                    showToast(err.message, "error");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading || !bulkInput.trim()}
+                className="mt-3 w-full h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Users className="w-4 h-4" />
+                    <span>Check All ({bulkInput.split("\n").filter(l => l.trim()).length})</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
           {/* Clickable Quick Samples */}
           <div className="flex flex-wrap items-center gap-2 mt-5 pt-4 border-t border-slate-800/80 text-xs">
             <span className="text-slate-400 flex items-center gap-1">
@@ -963,6 +1191,71 @@ export default function Home() {
           </div>
         )}
 
+        {/* Bulk Results Display */}
+        {bulkMode && bulkResults.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-2">
+              <span className="text-xs text-slate-400">
+                Bulk results for: <strong className="text-slate-200 font-mono">{activeTab.toUpperCase()}</strong>
+              </span>
+              <button
+                onClick={() => {
+                  const csv = bulkResults.map(r =>
+                    `${r.input},${r.success ? "SUCCESS" : "FAILED"},${r.success ? JSON.stringify(r.data) : r.data.error}`
+                  ).join("\n");
+                  const blob = new Blob([csv], { type: "text/csv" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `dataguard-bulk-${Date.now()}.csv`;
+                  a.click();
+                  showToast("CSV exported!", "success");
+                }}
+                className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 transition-all hover:border-emerald-500/50 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
+              </button>
+            </div>
+            <div className="bg-[#111728]/80 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-6 shadow-xl">
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                  <span className="text-xl font-bold text-emerald-400">{bulkResults.filter(r => r.success && (r.data.breached === false || r.data.foundCount > 0 || r.data.found === true)).length}</span>
+                  <span className="text-[10px] text-emerald-300 block">Safe / Found</span>
+                </div>
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center">
+                  <span className="text-xl font-bold text-rose-400">{bulkResults.filter(r => r.success && (r.data.breached === true || r.data.found === false)).length}</span>
+                  <span className="text-[10px] text-rose-300 block">At Risk / Not Found</span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-500/10 border border-slate-500/20 text-center">
+                  <span className="text-xl font-bold text-slate-400">{bulkResults.filter(r => !r.success).length}</span>
+                  <span className="text-[10px] text-slate-300 block">Failed</span>
+                </div>
+              </div>
+              <div className="max-h-64 overflow-y-auto space-y-2">
+                {bulkResults.map((r, i) => (
+                  <div key={i} className={`p-3 rounded-xl border text-xs flex items-center justify-between ${
+                    !r.success ? "bg-rose-500/5 border-rose-500/20" :
+                    r.data.breached === true || r.data.breached === false && r.type === "email" && r.data.breached ? "bg-rose-500/5 border-rose-500/20" :
+                    r.data.found === false || r.data.breached === true ? "bg-amber-500/5 border-amber-500/20" :
+                    "bg-emerald-500/5 border-emerald-500/20"
+                  }`}>
+                    <span className="font-mono text-slate-200 truncate mr-4">{r.input}</span>
+                    <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                      !r.success ? "bg-rose-500/20 text-rose-300" :
+                      r.data.breached === true ? "bg-rose-500/20 text-rose-300" :
+                      r.data.found === false ? "bg-amber-500/20 text-amber-300" :
+                      "bg-emerald-500/20 text-emerald-300"
+                    }`}>
+                      {!r.success ? "Error" : r.data.breached === true ? "Breached" : r.data.found === false ? "Not Found" : "Found"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Results Container */}
         {result && (
           <div className="space-y-6">
@@ -974,12 +1267,23 @@ export default function Home() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={generatePDF}
+                  disabled={!result}
+                  className="text-xs text-slate-300 hover:text-white flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 transition-all hover:bg-slate-800 hover:border-slate-700 cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Download Audit Report as PDF"
+                >
+                  <FileText className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Export PDF</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => window.print()}
                   className="text-xs text-slate-300 hover:text-white flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 transition-all hover:bg-slate-800 hover:border-slate-700 cursor-pointer active:scale-95"
                   title="Print or Save Audit Report as PDF"
                 >
                   <Printer className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Export Report (PDF)</span>
+                  <span>Print</span>
                 </button>
 
                 <button
