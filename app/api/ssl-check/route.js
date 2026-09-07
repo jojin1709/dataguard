@@ -1,4 +1,6 @@
 import { connect } from "tls";
+import dns from "dns/promises";
+import { isPublicIp, normalizePublicHostname } from "../../../lib/input-security";
 
 export async function POST(req) {
   try {
@@ -7,12 +9,8 @@ export async function POST(req) {
       return Response.json({ error: "Domain is required" }, { status: 400 });
     }
 
-    const cleanDomain = domain.trim()
-      .replace(/^https?:\/\//i, "")
-      .replace(/^www\./i, "")
-      .split("/")[0]
-      .split(":")[0]
-      .toLowerCase();
+    const cleanDomain = normalizePublicHostname(domain);
+    if (!cleanDomain) return Response.json({ error: "Enter a valid public domain name." }, { status: 400 });
 
     const certInfo = await getCertificate(cleanDomain);
     return Response.json(certInfo);
@@ -21,7 +19,15 @@ export async function POST(req) {
   }
 }
 
-function getCertificate(hostname) {
+async function getCertificate(hostname) {
+  const addresses = await dns.lookup(hostname, { all: true, verbatim: true });
+  if (!addresses.length || addresses.some(({ address }) => !isPublicIp(address))) {
+    throw new Error("The domain does not resolve exclusively to public internet addresses.");
+  }
+  return connectToAddress(hostname, addresses[0].address);
+}
+
+function connectToAddress(hostname, address) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       socket.destroy();
@@ -29,7 +35,7 @@ function getCertificate(hostname) {
     }, 10000);
 
     const socket = connect(
-      { host: hostname, port: 443, servername: hostname, rejectUnauthorized: false },
+      { host: address, port: 443, servername: hostname, rejectUnauthorized: true, minVersion: "TLSv1.2" },
       () => {
         clearTimeout(timeout);
         const cert = socket.getPeerCertificate(true);
@@ -65,7 +71,9 @@ function getCertificate(hostname) {
 
         resolve({
           domain: hostname,
-          isValid: !isExpired,
+          resolvedAddress: address,
+          isTrusted: socket.authorized,
+          isValid: socket.authorized && !isExpired,
           isExpired,
           isExpiringSoon,
           daysRemaining,

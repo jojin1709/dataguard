@@ -235,6 +235,34 @@ const MODULES = [
   },
 ];
 
+const SENSITIVE_MODULES = new Set(["email", "phone", "aadhaar", "pan", "password", "vehicle", "voter", "card"]);
+
+async function createPasswordFingerprint(password) {
+  const buffer = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(password));
+  const sha1 = Array.from(new Uint8Array(buffer), (byte) => byte.toString(16).padStart(2, "0")).join("").toUpperCase();
+  let score = 0;
+  if (password.length >= 8) score += 1;
+  if (password.length >= 12) score += 1;
+  if (password.length >= 16) score += 1;
+  if (/[a-z]/.test(password)) score += 1;
+  if (/[A-Z]/.test(password)) score += 1;
+  if (/[0-9]/.test(password)) score += 1;
+  if (/[^A-Za-z0-9]/.test(password)) score += 1;
+  const feedback = [];
+  if (password.length < 12) feedback.push("Use at least 12–16 characters to resist automated brute-force attacks.");
+  if (!/[^A-Za-z0-9]/.test(password)) feedback.push("Include symbols (e.g. !@#$%^&*) for higher complexity.");
+  return {
+    sha1,
+    length: password.length,
+    strength: {
+      score,
+      level: score >= 6 ? "Very Strong" : score >= 4 ? "Moderate" : score >= 2 ? "Weak" : "Very Weak",
+      color: score >= 6 ? "emerald" : score >= 4 ? "amber" : score >= 2 ? "rose" : "red",
+      feedback,
+    },
+  };
+}
+
 /* Number count-up animation */
 function AnimatedNumber({ value }) {
   const [count, setCount] = useState(0);
@@ -364,6 +392,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [hasConsent, setHasConsent] = useState(false);
   const [breachSearch, setBreachSearch] = useState("");
 
   const visibleModules =
@@ -380,6 +409,7 @@ export default function Home() {
     setError("");
     setBreachSearch("");
     setShowPassword(false);
+    setHasConsent(false);
   }
 
   function handleCategoryChange(catId) {
@@ -410,6 +440,10 @@ export default function Home() {
     if (e) e.preventDefault();
     const targetQuery = (queryParam !== undefined ? queryParam : query).trim();
     if (!targetQuery) return;
+    if (SENSITIVE_MODULES.has(activeTab) && !hasConsent) {
+      setError("Confirm that you are authorized to check this sensitive identifier before continuing.");
+      return;
+    }
 
     setError("");
     setResult(null);
@@ -474,10 +508,11 @@ export default function Home() {
         if (res.error) throw new Error(res.error);
         setResult({ type: "username", data: res });
       } else if (activeTab === "password") {
+        const fingerprint = await createPasswordFingerprint(targetQuery);
         const res = await fetch("/api/password-check", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: targetQuery }),
+          body: JSON.stringify(fingerprint),
         }).then((r) => r.json());
         if (res.error) throw new Error(res.error);
         setResult({ type: "password", data: res });
@@ -824,6 +859,18 @@ export default function Home() {
               )}
             </button>
           </form>
+
+          {SENSITIVE_MODULES.has(activeTab) && (
+            <label className="flex items-start gap-2.5 mt-4 text-xs text-slate-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hasConsent}
+                onChange={(e) => setHasConsent(e.target.checked)}
+                className="mt-0.5 accent-blue-500"
+              />
+              <span>I am authorized to check this identifier. Results are not stored. Passwords are SHA-1 fingerprinted in this browser before the breach lookup; never enter CVV, OTP, or biometric data.</span>
+            </label>
+          )}
 
           {/* Clickable Quick Samples */}
           <div className="flex flex-wrap items-center gap-2 mt-5 pt-4 border-t border-slate-800/80 text-xs">
@@ -2494,11 +2541,14 @@ function UrlSafetyResultView({ data }) {
           <h2 className="text-base font-semibold text-white">URL Safety Scan</h2>
           <p className="text-xs text-slate-400 mt-0.5 font-mono truncate max-w-xs">{data.url}</p>
         </div>
-        <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${isMalicious ? "bg-red-500/15 text-red-400 border-red-500/30" : data.isSuspicious ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"}`}>
-          {isMalicious ? "⚠ MALICIOUS" : data.isSuspicious ? "⚠ SUSPICIOUS" : "✓ SAFE"}
+        <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${isMalicious ? "bg-red-500/15 text-red-400 border-red-500/30" : data.isSuspicious ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" : data.scanStatus === "complete" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : "bg-slate-500/15 text-slate-300 border-slate-500/30"}`}>
+          {isMalicious ? "⚠ MALICIOUS" : data.isSuspicious ? "⚠ SUSPICIOUS" : data.scanStatus === "complete" ? "✓ NO THREATS FOUND" : "SCAN INCOMPLETE"}
         </span>
       </div>
       <p className="text-sm text-slate-300">{data.summary}</p>
+      <p className={`text-xs rounded-xl border px-3 py-2 ${data.scanStatus === "complete" ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-300" : "border-yellow-500/20 bg-yellow-500/5 text-yellow-300"}`}>
+        Sources: {data.availableEngines?.join(" + ") || "none available"}. Status: {data.scanStatus || "unknown"}. A clean result is not a guarantee that a site is safe.
+      </p>
       {vt && (
         <div>
           <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">VirusTotal — {vtTotal} Engines</h3>
@@ -2633,8 +2683,8 @@ function SslResultView({ data }) {
           <h2 className="text-base font-semibold text-white">SSL Certificate</h2>
           <p className="text-xs text-slate-400 mt-0.5 font-mono">{data.domain}</p>
         </div>
-        <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${data.isExpired ? "bg-red-500/15 text-red-400 border-red-500/30" : data.isExpiringSoon ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"}`}>
-          {data.isExpired ? "✗ EXPIRED" : data.isExpiringSoon ? "⚠ EXPIRING SOON" : "✓ VALID"}
+        <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${!data.isTrusted || data.isExpired ? "bg-red-500/15 text-red-400 border-red-500/30" : data.isExpiringSoon ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"}`}>
+          {!data.isTrusted ? "✗ UNTRUSTED" : data.isExpired ? "✗ EXPIRED" : data.isExpiringSoon ? "⚠ EXPIRING SOON" : "✓ VALID"}
         </span>
       </div>
       <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">

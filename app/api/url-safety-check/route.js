@@ -1,3 +1,5 @@
+import { normalizeSafeHttpUrl } from "../../../lib/input-security";
+
 export async function POST(req) {
   try {
     const { url } = await req.json();
@@ -5,28 +7,33 @@ export async function POST(req) {
       return Response.json({ error: "URL is required" }, { status: 400 });
     }
 
-    const cleanUrl = url.trim().startsWith("http") ? url.trim() : `https://${url.trim()}`;
+    const cleanUrl = normalizeSafeHttpUrl(url);
+    if (!cleanUrl) return Response.json({ error: "Enter a public HTTP or HTTPS URL." }, { status: 400 });
 
     const [vtResult, gsbResult] = await Promise.all([
       checkVirusTotal(cleanUrl),
       checkGoogleSafeBrowsing(cleanUrl),
     ]);
 
+    const availableEngines = [vtResult && "VirusTotal", gsbResult && "Google Safe Browsing"].filter(Boolean);
     const isMalicious = (vtResult?.malicious || 0) > 0 || (gsbResult?.threats?.length || 0) > 0;
     const isSuspicious = (vtResult?.suspicious || 0) > 0;
+    const scanStatus = availableEngines.length === 0 ? "unavailable" : availableEngines.length === 2 ? "complete" : "partial";
 
     return Response.json({
       url: cleanUrl,
-      isSafe: !isMalicious && !isSuspicious,
+      isSafe: scanStatus === "complete" && !isMalicious && !isSuspicious,
       isMalicious,
       isSuspicious,
+      scanStatus,
+      availableEngines,
       virusTotal: vtResult,
       googleSafeBrowsing: gsbResult,
       summary: isMalicious
         ? `This URL is flagged as malicious by ${vtResult?.malicious || 0} engine(s).`
         : isSuspicious
         ? `This URL is flagged as suspicious by ${vtResult?.suspicious || 0} engine(s).`
-        : "No threats detected across all scanning engines.",
+        : scanStatus === "complete" ? "No threats detected by the configured scanning engines." : "The scan is incomplete; this result must not be treated as safe.",
     });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });

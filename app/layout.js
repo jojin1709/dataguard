@@ -1,6 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
+  metadataBase: new URL("https://dataguard-suite.vercel.app"),
   title: "DataGuard — Privacy & Data Exposure Suite",
   description:
     "DataGuard by Jojin John: Check whether your personal information (Email, Phone, Aadhaar, PAN, Username, Password, IP, Crypto Wallet, or Domain) has been leaked in data breaches or exposed online. Powered by 15+ intelligence engines.",

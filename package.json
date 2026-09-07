@@ -5,8 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node --test"
   },
+  "type": "module",
   "dependencies": {
     "canvas-confetti": "^1.9.4",
     "lucide-react": "^1.40.0",
