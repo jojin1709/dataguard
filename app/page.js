@@ -1156,6 +1156,13 @@ function EmailResultView({ result, search, setSearch }) {
               )}
             </div>
 
+            {breach.pastes?.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-slate-800">
+                <p className="text-xs font-semibold text-slate-300 mb-2">HIBP Paste Exposure</p>
+                <div className="flex flex-wrap gap-2">{breach.pastes.map((paste, index) => <span key={`${paste.source}-${index}`} className="text-[11px] px-2 py-1 rounded bg-slate-900 border border-slate-700 text-slate-300">{paste.source}: {paste.title}</span>)}</div>
+              </div>
+            )}
+
             <div className="mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 flex items-start gap-2.5">
               <span className="text-base">💡</span>
               <div>
@@ -2690,7 +2697,7 @@ function UrlSafetyResultView({ data }) {
         <div className="p-4 rounded-2xl border border-slate-700/60 bg-slate-900/40">
           <div className="flex items-center gap-2 mb-2">
             <ShieldCheck className="w-4 h-4 text-blue-400" />
-            <span className="text-xs font-semibold text-slate-300">Google Safe Browsing</span>
+            <span className="text-xs font-semibold text-slate-300">{gsb.source || "Google Safe Browsing"}</span>
             <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${gsb.isSafe ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}>{gsb.isSafe ? "CLEAN" : "THREAT FOUND"}</span>
           </div>
           {gsb.threats?.map((t, i) => (
@@ -2766,7 +2773,15 @@ function WhoisResultView({ data }) {
       <div className="flex gap-2 text-[10px] text-slate-500">
         {data.sources?.rdap && <span className="px-2 py-0.5 rounded bg-slate-800">RDAP</span>}
         {data.sources?.whoisXml && <span className="px-2 py-0.5 rounded bg-slate-800">WhoisXML</span>}
+        {data.sources?.securityTrails && <span className="px-2 py-0.5 rounded bg-slate-800">SecurityTrails</span>}
       </div>
+      {data.securityTrails && (
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+          <h3 className="text-xs font-semibold text-slate-300 mb-2">SecurityTrails Passive DNS</h3>
+          <p className="text-xs text-slate-400">{data.securityTrails.subdomainCount} subdomains returned · {data.securityTrails.historicalARecordCount} historical A-record snapshots</p>
+          {data.securityTrails.subdomains?.length > 0 && <div className="flex flex-wrap gap-1.5 mt-3 max-h-24 overflow-y-auto">{data.securityTrails.subdomains.map((subdomain) => <span key={subdomain} className="text-[11px] font-mono px-2 py-1 rounded bg-slate-950 border border-slate-700 text-cyan-200">{subdomain}</span>)}</div>}
+        </div>
+      )}
     </div>
   );
 }

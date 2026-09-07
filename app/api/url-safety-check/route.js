@@ -10,15 +10,15 @@ export async function POST(req) {
     const cleanUrl = normalizeSafeHttpUrl(url);
     if (!cleanUrl) return Response.json({ error: "Enter a public HTTP or HTTPS URL." }, { status: 400 });
 
-    const [vtResult, gsbResult, urlscanResult] = await Promise.all([
+    const [vtResult, googleResult, urlscanResult] = await Promise.all([
       checkVirusTotal(cleanUrl),
-      checkGoogleSafeBrowsing(cleanUrl),
+      checkGoogleWebRisk(cleanUrl),
       submitUrlscan(cleanUrl),
     ]);
 
-    const availableEngines = [vtResult && "VirusTotal", gsbResult && "Google Safe Browsing", urlscanResult && "urlscan.io"].filter(Boolean);
-    const verdictEngineCount = [vtResult, gsbResult].filter(Boolean).length;
-    const isMalicious = (vtResult?.malicious || 0) > 0 || (gsbResult?.threats?.length || 0) > 0;
+    const availableEngines = [vtResult && "VirusTotal", googleResult && googleResult.source, urlscanResult && "urlscan.io"].filter(Boolean);
+    const verdictEngineCount = [vtResult, googleResult].filter(Boolean).length;
+    const isMalicious = (vtResult?.malicious || 0) > 0 || (googleResult?.threats?.length || 0) > 0;
     const isSuspicious = (vtResult?.suspicious || 0) > 0;
     const scanStatus = verdictEngineCount === 0 ? "unavailable" : verdictEngineCount === 2 ? "complete" : "partial";
 
@@ -30,7 +30,7 @@ export async function POST(req) {
       scanStatus,
       availableEngines,
       virusTotal: vtResult,
-      googleSafeBrowsing: gsbResult,
+      googleSafeBrowsing: googleResult,
       urlscan: urlscanResult,
       summary: isMalicious
         ? `This URL is flagged as malicious by ${vtResult?.malicious || 0} engine(s).`
@@ -143,11 +143,33 @@ async function checkGoogleSafeBrowsing(url) {
     const json = await res.json();
     const matches = json.matches || [];
     return {
+      source: "Google Safe Browsing (legacy)",
       threats: matches.map((m) => ({ threatType: m.threatType, platformType: m.platformType })),
       isSafe: matches.length === 0,
     };
   } catch (err) {
     console.error("Google Safe Browsing error:", err.message);
+    return null;
+  }
+}
+
+async function checkGoogleWebRisk(url) {
+  const apiKey = process.env.GOOGLE_WEB_RISK_API_KEY;
+  if (!apiKey) return checkGoogleSafeBrowsing(url);
+  try {
+    const params = new URLSearchParams({ key: apiKey, uri: url });
+    params.append("threatTypes", "MALWARE");
+    params.append("threatTypes", "SOCIAL_ENGINEERING");
+    const res = await fetch(`https://webrisk.googleapis.com/v1/uris:search?${params}`, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      source: "Google Web Risk",
+      threats: data.threat ? [{ threatType: data.threat.threatTypes?.join(", ") || "THREAT", platformType: "ANY_PLATFORM" }] : [],
+      isSafe: !data.threat,
+    };
+  } catch (err) {
+    console.error("Google Web Risk error:", err.message);
     return null;
   }
 }
