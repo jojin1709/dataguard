@@ -10,15 +10,17 @@ export async function POST(req) {
     const cleanUrl = normalizeSafeHttpUrl(url);
     if (!cleanUrl) return Response.json({ error: "Enter a public HTTP or HTTPS URL." }, { status: 400 });
 
-    const [vtResult, gsbResult] = await Promise.all([
+    const [vtResult, gsbResult, urlscanResult] = await Promise.all([
       checkVirusTotal(cleanUrl),
       checkGoogleSafeBrowsing(cleanUrl),
+      submitUrlscan(cleanUrl),
     ]);
 
-    const availableEngines = [vtResult && "VirusTotal", gsbResult && "Google Safe Browsing"].filter(Boolean);
+    const availableEngines = [vtResult && "VirusTotal", gsbResult && "Google Safe Browsing", urlscanResult && "urlscan.io"].filter(Boolean);
+    const verdictEngineCount = [vtResult, gsbResult].filter(Boolean).length;
     const isMalicious = (vtResult?.malicious || 0) > 0 || (gsbResult?.threats?.length || 0) > 0;
     const isSuspicious = (vtResult?.suspicious || 0) > 0;
-    const scanStatus = availableEngines.length === 0 ? "unavailable" : availableEngines.length === 2 ? "complete" : "partial";
+    const scanStatus = verdictEngineCount === 0 ? "unavailable" : verdictEngineCount === 2 ? "complete" : "partial";
 
     return Response.json({
       url: cleanUrl,
@@ -29,6 +31,7 @@ export async function POST(req) {
       availableEngines,
       virusTotal: vtResult,
       googleSafeBrowsing: gsbResult,
+      urlscan: urlscanResult,
       summary: isMalicious
         ? `This URL is flagged as malicious by ${vtResult?.malicious || 0} engine(s).`
         : isSuspicious
@@ -38,6 +41,26 @@ export async function POST(req) {
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
   }
+}
+
+async function submitUrlscan(url) {
+  const keys = [process.env.URLSCAN_API_KEY, process.env.URLSCAN_API_KEY_SECONDARY].filter(Boolean);
+  for (const apiKey of keys) {
+    try {
+      const res = await fetch("https://urlscan.io/api/v1/scan/", {
+        method: "POST",
+        headers: { "API-Key": apiKey, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ url, visibility: "unlisted", tags: ["dataguard"] }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      return { status: "queued", uuid: data.uuid, resultUrl: data.result, visibility: data.visibility || "unlisted" };
+    } catch (err) {
+      console.error("urlscan submission error:", err.message);
+    }
+  }
+  return null;
 }
 
 async function checkVirusTotal(url) {

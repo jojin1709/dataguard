@@ -30,6 +30,13 @@ Social-profile checks are best-effort public HTTP checks and may be limited by l
 - The TLS inspector accepts public DNS names only, rejects private/internal address resolution, pins its connection to a validated public address, validates the certificate chain and hostname, and requires TLS 1.2 or newer.
 - Upstream errors do not result in a false “safe” verdict.
 
+## Connected intelligence sources
+
+- **URL Safety:** VirusTotal, Google Safe Browsing, and urlscan.io. urlscan.io submissions use `unlisted` visibility and return an evidence link while its asynchronous scan completes.
+- **IP Intelligence:** ipwho.is geolocation, AbuseIPDB, VirusTotal, AlienVault OTX, IPinfo Lite ASN context, Shodan observed ports, and Censys indexed services.
+
+Each provider is optional. A quota, plan restriction, or upstream outage omits only that provider from the result; it never prevents the remaining checks from completing or produces a fabricated negative verdict.
+
 > The included in-memory rate limit is an effective local/single-instance safeguard. For horizontally scaled production deployments, replace it with a shared, durable limiter such as Upstash Redis or your hosting provider’s WAF/rate limiter.
 
 ## Setup
@@ -41,6 +48,8 @@ npm run dev
 ```
 
 Configure only the API keys you intend to use in `.env.local`. Missing keys degrade the corresponding live enrichment to an unavailable/partial source state; no API key is exposed to the browser.
+
+For Vercel, add the same variables under **Project Settings → Environment Variables** and redeploy after changing them. Keep API keys server-only—do not prefix them with `NEXT_PUBLIC_`.
 
 ## Quality checks
 

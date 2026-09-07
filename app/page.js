@@ -1561,6 +1561,9 @@ function IpResultView({ data }) {
   const abuse = data.abuseipdb;
   const vt = data.virusTotal;
   const otx = data.alienVaultOtx;
+  const ipinfo = data.ipinfo;
+  const shodan = data.shodan;
+  const censys = data.censys;
 
   return (
     <div className="space-y-6">
@@ -1893,6 +1896,34 @@ function IpResultView({ data }) {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {(ipinfo || shodan || censys) && (
+        <div className="bg-[#121826]/90 border border-slate-800 rounded-3xl p-6 sm:p-7 glow-card shadow-lg backdrop-blur">
+          <div className="pb-4 mb-5 border-b border-slate-800/80">
+            <h2 className="text-base font-semibold text-white">Internet Exposure & Network Enrichment</h2>
+            <p className="text-xs text-slate-400 mt-1">Independent source data; unavailable providers are omitted rather than guessed.</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-4">
+            {ipinfo && <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+              <span className="text-xs text-cyan-300 font-semibold">IPinfo Lite</span>
+              <p className="text-sm font-semibold text-white mt-2">{ipinfo.asn || "ASN unavailable"}</p>
+              <p className="text-xs text-slate-400 mt-1 break-words">{ipinfo.asName || "Unknown network"}</p>
+              {ipinfo.asDomain && <p className="text-[11px] text-slate-500 mt-1">{ipinfo.asDomain}</p>}
+            </div>}
+            {shodan && <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+              <span className="text-xs text-blue-300 font-semibold">Shodan</span>
+              <p className="text-sm font-semibold text-white mt-2">{shodan.ports?.length || 0} observed ports</p>
+              <div className="flex flex-wrap gap-1.5 mt-2">{(shodan.ports || []).map((port) => <span key={port} className="text-[11px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-200">{port}</span>)}</div>
+              {shodan.tags?.length > 0 && <p className="text-[11px] text-slate-500 mt-2">Tags: {shodan.tags.join(", ")}</p>}
+            </div>}
+            {censys && <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+              <span className="text-xs text-purple-300 font-semibold">Censys</span>
+              <p className="text-sm font-semibold text-white mt-2">{censys.services?.length || 0} indexed services</p>
+              <div className="space-y-1.5 mt-2 max-h-28 overflow-y-auto">{(censys.services || []).map((service, index) => <p key={`${service.port}-${index}`} className="text-[11px] text-slate-400 font-mono">{service.port}/{service.transport || "tcp"}{service.serviceName ? ` · ${service.serviceName}` : ""}</p>)}</div>
+            </div>}
+          </div>
         </div>
       )}
 
@@ -2549,6 +2580,19 @@ function UrlSafetyResultView({ data }) {
       <p className={`text-xs rounded-xl border px-3 py-2 ${data.scanStatus === "complete" ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-300" : "border-yellow-500/20 bg-yellow-500/5 text-yellow-300"}`}>
         Sources: {data.availableEngines?.join(" + ") || "none available"}. Status: {data.scanStatus || "unknown"}. A clean result is not a guarantee that a site is safe.
       </p>
+      {data.urlscan && (
+        <div className="p-4 rounded-2xl border border-blue-500/20 bg-blue-500/5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-blue-200">urlscan.io evidence scan queued</p>
+              <p className="text-xs text-slate-400 mt-1">The unlisted scan may take around a minute. It can provide a screenshot, redirect chain, page assets, and network requests.</p>
+            </div>
+            <a href={data.urlscan.resultUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-xs font-semibold text-blue-300 hover:text-blue-200 flex items-center gap-1">
+              Open scan <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+        </div>
+      )}
       {vt && (
         <div>
           <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">VirusTotal — {vtTotal} Engines</h3>

@@ -125,6 +125,82 @@ async function queryAlienVaultOTX(ip) {
   }
 }
 
+async function queryIpinfo(ip) {
+  const token = process.env.IPINFO_TOKEN;
+  if (!token) return null;
+  try {
+    const res = await fetch(`https://api.ipinfo.io/lite/${encodeURIComponent(ip)}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      asn: data.asn || null,
+      asName: data.as_name || null,
+      asDomain: data.as_domain || null,
+      country: data.country || null,
+      countryCode: data.country_code || null,
+      continent: data.continent || null,
+    };
+  } catch (err) {
+    console.error("IPinfo error:", err.message);
+    return null;
+  }
+}
+
+async function queryShodan(ip) {
+  const apiKey = process.env.SHODAN_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const res = await fetch(`https://api.shodan.io/shodan/host/${encodeURIComponent(ip)}?key=${encodeURIComponent(apiKey)}&minify=true`, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      ports: (data.ports || []).slice(0, 30),
+      tags: (data.tags || []).slice(0, 10),
+      hostnames: (data.hostnames || []).slice(0, 8),
+      lastUpdate: data.last_update || null,
+      os: data.os || null,
+    };
+  } catch (err) {
+    console.error("Shodan error:", err.message);
+    return null;
+  }
+}
+
+async function queryCensys(ip) {
+  const token = process.env.CENSYS_API_TOKEN;
+  if (!token) return null;
+  try {
+    const res = await fetch(`https://api.platform.censys.io/v3/global/asset/host/${encodeURIComponent(ip)}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.censys.api.v3.host.v1+json",
+      },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!res.ok) return null;
+    const resource = (await res.json())?.result?.resource;
+    if (!resource) return null;
+    return {
+      services: (resource.services || []).slice(0, 20).map((service) => ({
+        port: service.port,
+        transport: service.transport_protocol || service.transport || null,
+        serviceName: service.service_name || service.service?.name || null,
+      })),
+      labels: (resource.labels || []).slice(0, 10),
+      lastUpdatedAt: resource.last_updated_at || null,
+    };
+  } catch (err) {
+    console.error("Censys error:", err.message);
+    return null;
+  }
+}
+
 export async function POST(req) {
   try {
     const { ip } = await req.json();
@@ -156,11 +232,14 @@ export async function POST(req) {
 
     const resolvedIP = data.ip;
 
-    // Concurrently query threat databases: AbuseIPDB, VirusTotal, and AlienVault OTX
-    const [abuseData, virusTotalData, otxData] = await Promise.all([
+    // Each provider is independently optional; one quota/error must not fail the audit.
+    const [abuseData, virusTotalData, otxData, ipinfoData, shodanData, censysData] = await Promise.all([
       queryAbuseIPDB(resolvedIP),
       queryVirusTotalIP(resolvedIP),
       queryAlienVaultOTX(resolvedIP),
+      queryIpinfo(resolvedIP),
+      queryShodan(resolvedIP),
+      queryCensys(resolvedIP),
     ]);
 
     return Response.json({
@@ -186,6 +265,18 @@ export async function POST(req) {
       abuseipdb: abuseData,
       virusTotal: virusTotalData,
       alienVaultOtx: otxData,
+      ipinfo: ipinfoData,
+      shodan: shodanData,
+      censys: censysData,
+      sources: {
+        ipwhois: true,
+        abuseipdb: !!abuseData,
+        virusTotal: !!virusTotalData,
+        alienVaultOtx: !!otxData,
+        ipinfo: !!ipinfoData,
+        shodan: !!shodanData,
+        censys: !!censysData,
+      },
       summary: `${resolvedIP} resolves to ${data.city || data.region || "Unknown City"}, ${data.country} operated by ${data.connection?.isp || "Unknown Provider"}.`,
     });
   } catch (e) {
